@@ -1,0 +1,355 @@
+---
+title: "S1_Gauss"
+author: "Romina Loayza and Alfredo Aro"
+format: 
+  html: 
+    self-contained: true
+    toc: true
+    toc-depth: 2 # Cambia el nivel de profundidad del índice si es necesario
+    toc-location: left # Cambia a "right" si prefieres el índice a la derecha
+editor: visual
+---
+
+# Sesión 1: Regresión Gaussiana
+
+Material referencial: José Manuel Magallanes Reyes
+
+## 1. Introducción
+
+La regresión resulta una ténica en la que debemos definir una variable dependiente y una o más independientes. Las variables independientes no siempre cuentan con un rol predictor, pero sí explicativo; es por ello que resulta una ténica para probar hipótesis direccionales o asimétricas.
+
+La regresión Gaussiana se usa cuando nuestra **variable dependiente (Y) resulta ser numérica, continua, y no acotada.** Por ejemplo:
+
+-   Presupuestos, gasto gubernamental
+
+-   Ingreso anual
+
+-   Altura, peso
+
+## 2. Caso de estudio: Pavimentando con votos
+
+Profesores de la Universidad de los Andes (Mejia Guinand, Botero, and Rodriguez Raga 2008) decidieron estudiar cómo la *distribución de fondos públicos* fue afectada por *factores políticos* durante el primer periodo del Presidente Uribe (2002-2006). Las hipótesis que se plantean son:\
+
+-   H1: la asignación presupuestal en infraestructura vial en Colombia responde a los criterios técnicos y económicos determinados en el Plan Nacional de Desarrollo y otros documentos de carácter técnico elaborados por el gobierno.
+
+-   H2: la asignación presupuestal en infraestructura vial en Colombia responde a negociaciones bilaterales entre el ejecutivo y el legislativo basadas en necesidades políticas y electorales de corto plazo.
+
+-   H3: la asignación presupuestal en infraestructura vial en Colombia responde al esfuerzo del gobierno por fortalecer su base social de apoyo local a través de los Consejos Comunales de Gobierno
+
+### 2.1. Preparación de los datos
+
+Ya tenemos claras las hipótesis, podemos organizar los datos.
+
+```{r}
+rm(list = ls())    #esto nos sirve para limpiar el environment
+
+#cargamos la data
+link = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSRpCC8gKIxMxpK0wjgLcl-GQWdw6sAeB16Sixkq6kZXeTfMS8_n70twbEbQ2tMcGp8tm-6x8qf8ieo/pub?gid=234740779&single=true&output=csv'
+
+#le damos un nombre
+pavi = read.csv(link)
+
+#pavi
+```
+
+Resulta importante como paso previo revisar el tipo de datos que tenemos, específicamente cómo es que R los ha leído:
+
+```{r}
+str(pavi)
+```
+
+Recuerda que es mejor usar datos sin valores perdidos, por lo que tenemos que limpiar nuestra data:
+
+```{r}
+pavi=pavi[complete.cases(pavi),]
+```
+
+Asimismo, debemos darle el formato adecuado a nuestras variables. En nuestro caso hay que cambiar a categóricos algunas variables:
+
+```{r}
+seleccion=c("consejocomunal","ejecucion","uribista","priorizado")
+pavi[,seleccion]=lapply(pavi[,seleccion],as.factor)     
+
+#Variable 0-1, que no se pueden leer como enteros
+```
+
+### 2.2. Explorando las variables
+
+```{r}
+paviStats=summary(pavi[,-1])    #el -1 es para que no tome la primera columna
+paviStats
+```
+
+Estas son las estadísticos básicos de nuestras variables, pero se muy flojo, por lo que tenemos que seguir.
+
+## 3. Análisis de regresión
+
+Veamos una hipótesis:
+
+::: callout-note
+*El Beneficio recibido* en un municipio ha sido afectado por *el porcentaje de votos recibidos por los candidatos de la oposición a Uribe a la camara de representantes*, controlando por *tamaño de población*.
+:::
+
+```{r}
+# hipótesis en R
+modelo1 = formula(apropiaciondolar ~ pctopo + poblacioncienmil) 
+```
+
+Para probar nuestra hipótesis en R, debemos realizar lo siguiente:
+
+```{r}
+reg1 = lm(modelo1, data=pavi)
+summary(reg1)
+```
+
+Si queremos presentarlo de una mejor forma, podemos emplear el **modelsummary package.**
+
+```{r}
+library(modelsummary)    #recordar como instalar paquetes
+model1 = list("apropiacion (I)" = reg1)
+modelsummary(model1, title = "Regresion: modelo 1",
+             stars = TRUE,
+             output = "kableExtra")
+```
+
+Al probar esta hipótesis vemos lo siguiente:
+
+1.  que *pctopo* tiene signo negativo (relación inversa con la VD)
+2.  que la *magnitud* de ese efecto es -0.031, lo que indica cuanto varía *apropiaciondolar* en promedio cuando *pctopo* se incremente en una unidad, controlando por *poblacioncienmil*.
+3.  que *pctopo* NO tiene *efecto significativo*.
+
+Podemos representar esta información de la siguiente forma:
+
+::: callout-note
+apropiaciondolar=8.8031897+−0.0314583⋅pctopo+2.1512469⋅poblacioncienmil+ϵ
+:::
+
+Justamente el *R cuadrado ajustado* (0.1180881) nos brinda un porcentaje (multiplicalo por 100) que da una pista de nuestra cercanía a una situación perfecta (cuando vale **1**).
+
+::: callout-note
+¿Y si queremos ver el efecto de consejo comunal (*consejocomunal*)?
+:::
+
+```{r}
+#Esta resulta nuestra hipótesis 2
+modelo2 = formula(apropiaciondolar ~ pctopo + consejocomunal + poblacioncienmil)
+```
+
+Esta nueva hipótesis pretende evaluar si la visita de Uribe a un Consejo Comunal influye en la asignación de presupuesto. Veamos el resultado:
+
+```{r}
+reg2= lm(modelo2,data=pavi)
+summary(reg2)
+```
+
+Recordar que el número de asteríscos nos revelan la significancia.
+
+Si queremos una mejor visualización:
+
+```{r}
+model2=list('apropiacion (II)'=reg2)
+modelsummary(model2, title = "Regresion: modelo 2",
+             stars = TRUE,
+             output = "kableExtra")
+```
+
+Observamos con esta nueva hipótesis que:
+
+1.  *pctopo* tiene signo negativo; NO tiene *efecto significativo*; y la *magnitud* de ese efecto es -0.03, lo que indica cuanto varíaría *apropiaciondolar* en promedio cuando *pctopo* se incremente en una unidad, controlando por las demás variables.
+2.  *consejocomunal* SÍ tiene *efecto significativo* al **0.001**; ese efecto es *directo*, pues el coeficiente calculado es positivo; y la *magnitud* de ese efecto es 14.796, lo que indica cuanto varía *apropiaciondolar* en promedio cuando *consejocomunal* es **1** y no **0**, también controlando por las demás variables.
+
+Cómo leer el efecto cuand ola variable independiente es categórica o factor!!!!
+
+Podemos tener la siguiente ecuación:
+
+::: callout-note
+apropiaciondolar= 8.0411893+−0.0298691⋅pctopo+14.7960149⋅consejocomunal+1.9123628⋅poblacioncienmil+ϵ
+:::
+
+::: callout-note
+Ahora queremos añadir el predictor **uribista,** veamos lo siguiente:
+:::
+
+```{r}
+# hipótesis 3
+modelo3 = formula (apropiaciondolar ~ pctopo + consejocomunal + uribista + poblacioncienmil)
+
+reg3=lm(modelo3,data=pavi)
+summary(reg3)
+```
+
+Lo vemos de mejor forma:
+
+```{r}
+model3=list('apropiacion (III)'=reg3)
+modelsummary(model3, title = "Regresion: modelo 3",
+             stars = TRUE,
+             output = "kableExtra")
+```
+
+Al probar la tercera hipótesis podemos ver que:
+
+1.  *pctopo* tiene signo negativo; y ahora SÍ tiene *efecto significativo*; y la *magnitud* de ese efecto es -0.038, lo que indica cuanto varíaría *apropiaciondolar* en promedio cuando *pctopo* se incremente en una unidad, controlando por las demás variables.
+2.  *consejocomunal* MANTIENE tiene *efecto significativo* al **0.001**; ese efecto es *directo*, pues el coeficiente calculado es positivo; y la *magnitud* de ese efecto es 14.738, lo que indica cuanto varía *apropiaciondolar* en promedio cuando *consejocomunal* es **1** y no **0**, también controlando por las demás variables.
+3.  *uribista* tiene *efecto significativo* al **0.05**; ese efecto es *inverso*, pues el coeficiente calculado es negativo; y la *magnitud* de ese efecto es -2.451, lo que indica cuanto varía *apropiaciondolar* en promedio cuando *uribista* es **1** y no **0**, también controlando por las demás variables.
+
+Podemos proponer la siguiente ecuación:
+
+::: callout-note
+apropiaciondolar=9.8054173+−0.0375299⋅pctopo+14.7379501⋅consejocomunal+−2.4512573⋅uribista+1.8905189⋅poblacioncienmil+ϵ
+:::
+
+### 3.1. Estandarización de Coeficientes
+
+Del resultado de la última tabla NO podemos directamente decir que consejo comunal tiene más efecto que los demás por el solo hecho que el valor estimado sea mayor a los demás. Para saber cuál tiene más efecto, cuando los predictores tienen, como en este caso unidades diferentes, estandarizamos los datos y volvemos a correr la regresión.
+
+```{r}
+library(lm.beta)
+
+
+model3beta=list('apropiacion (III)'=lm.beta(reg3))
+modelsummary(model3beta, title = "Regresion: modelo 3 con \ncoeficientes estandarizados usando lm.beta()",
+             stars = TRUE,
+             output = "kableExtra")
+```
+
+## 4. Selección de modelos
+
+Estuvimos intentando probar 3 hipótesis distintas, pero queremos saber cuál es la indicada
+
+```{r}
+models=list("apropiacion (I)" = reg1,
+  "apropiacion (II)" = reg2,
+  "apropiacion (III)" = reg3)
+
+modelsummary(models, title = "Resultados de todos los modelos",
+             stars = TRUE,
+             output = "kableExtra")
+```
+
+Podemos cambiar la anterior tabla, para que en lugar de observar los **errores típicos**, se muestren los **intervalos de confianza** del coeficiente estimado:
+
+```{r}
+models=list('apropiacion (I)'=reg1,
+            'apropiacion (II)'=reg2,
+            'apropiacion (III)'=reg3)
+
+modelsummary(models, title = "Resultados de todos los modelos",statistic = "conf.int",
+             stars = TRUE,
+             output = "kableExtra")
+```
+
+Si queremos verlo de forma mucho más gráfica, podemos correr el siguiente código:
+
+```{r}
+library(ggplot2)
+library(sjPlot)
+
+
+plot_models(reg1,reg2,reg3,vline.color = "black",m.labels=c("Modelo 1","Modelo 2","Modelo 3"),dot.size = 1,line.size = 0.6)
+```
+
+Para comparar los modelos, debemos realizar la tabla **ANOVA**:
+
+```{r}
+library(magrittr)
+library(knitr)
+tanova=anova(reg1,reg2,reg3)
+
+#Recordar que la tabla anova sirve para datos anidados
+
+kable(tanova,
+      caption = "Tabla ANOVA para comparar modelos")%>%kableExtra::kable_styling(full_width = FALSE)
+```
+
+## 5. Diagnósticos de la Regresión
+
+Debemos analizar los resultados obtenidos para poder tener una mejor conclusión. Revisemos el resultado de la segunda regresión en las siguientes sub-secciones:
+
+### 5.1. Linealidad
+
+Se asume relación lineal entre la variable dependiente (Y) y las independientes y Xs. Para ello analizamos la relación entre los residuos y los valores que predice el modelo de regresión.
+
+```{r}
+# línea roja debe tender a horizontal
+plot(reg2, 1)
+```
+
+Podemos verlo de la siguiente forma:
+
+```{r}
+mean(reg2$residuals)
+```
+
+-   La falta de linealidad provocaría que el modelo no sirva para explicar las mismas variables con datos diferentes en otros estudios.
+
+### 5.2. Homocedasticidad
+
+```{r}
+# linea roja debe tender a horizontal
+plot(reg2, 3)
+```
+
+No hay que confiarnos del gráfico! Es mejor realizar el test de Breusch-Pagan:
+
+```{r}
+library(lmtest)
+library(kableExtra)
+# null: modelo homocedastico
+resBP=bptest(reg2)
+data.frame(list('BP'=resBP$statistic,
+             'df'=resBP$parameter,
+             "p-value"=resBP$p.value))%>%
+    kable(caption = resBP$method)%>%kable_styling(full_width = F)
+```
+
+-   En este caso si el resultado del p-value es menor a 0.05 nos indica que hay heterocedasticidad en el modelo.
+
+-   p-value \> 0.05 existe homocedasticidad
+
+-   p-value \< 0.05 rechazamos que el modelo muestre homocedasticidad, por lo que encontrarmos heterocedasticidad
+
+### 5.3. Normalidad de residuos
+
+```{r}
+plot(reg2, 2)
+```
+
+Mejor hagamos el test de Shapiro:
+
+```{r}
+resSW=shapiro.test(reg2$residuals)
+data.frame(list('SW'=resSW$statistic,
+             "p-value"=resSW$p.value))%>%
+    kable(caption = resSW$method)%>%kable_styling(full_width = F)
+```
+
+### 5.4. No Multicolinealidad
+
+Si los predictores tienen una correlación muy alta entre sí, hay multicolinealidad. 
+
+```{r}
+library(DescTools)
+# ideal menor a 3, aceptable menor a 5, mayor a 5 es problematico
+
+VIF(reg2) %>%kable(col.names = "VIF",caption ="Evaluando Multicolinealidad usando VIF (Variance Inflation Factors)" )%>%kable_styling(full_width = F)
+```
+
+### 5.5. Valores influyentes
+
+```{r}
+plot(reg2, 5)
+```
+
+No nos confiemos de la gráfica!
+
+```{r}
+checkReg2=as.data.frame(influence.measures(reg2)$is.inf)
+checkReg2[checkReg2$cook.d & checkReg2$hat,c('cook.d','hat')]%>%kable(caption = "Valores Influyentes criticos")%>%kable_styling(full_width = F)
+```
+
+## Bibliografía
+
+Mejia Guinand, Luis Bernardo, Felipe Botero, and Juan Carlos Rodriguez Raga. 2008. “¿Pavimentando con votos? Apropiación presupuestal para proyectos de infraestructura vial en Colombia, 2002-2006.” *Colombia Internacional*, no. 68: 14–42. <http://www.redalyc.org/articulo.oa?id=81211204002>.
+
+MAGALLANES, Jose Manuel. 2022a. “Estadistica-AnalisisPolitico/Sesion1: Eap2 Classic.” Zenodo. <https://doi.org/10.5281/ZENODO.7015029>.
